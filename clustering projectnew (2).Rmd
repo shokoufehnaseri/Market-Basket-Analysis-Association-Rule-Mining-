@@ -1,0 +1,263 @@
+---
+title: "Credit Card Data Analysis"
+author: "Shokoufeh Naseri"
+date: "2024"
+output: 
+  html_document:
+    toc: true
+    toc_float:
+      toc_collapsed: true
+    toc_depth: 5
+    number_sections: false
+    theme: readable
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+knitr::include_graphics("card.png")
+```
+
+## Introduction
+Analyzing credit card data can provide valuable insights for various purposes, including fraud detection, customer behavior analysis, risk management, and business strategy optimization. 
+By segmenting customers based on their credit card usage patterns, businesses can offer more personalized services, design effective marketing strategies, and enhance customer satisfaction.
+In this project my aim is to do clustering on credit card dataset, in order to make distinct segments of credit card user and then describe each segment, what are these segments and what defines each segment.
+
+## data description
+I downloaded the CC GENERAL dataset from the Kaggle site, you can find the dataset here: https://www.kaggle.com/datasets/arjunbhasin2013/ccdata. This data is about 9,000 active credit card holder over the last six months with 18 behavioral variables. Lets at first take a look at these variables.
+
+ **Data Dictionary:**
+ 
+1.  CUST_ID : Identification of Credit Card holder (Categorical)
+
+2.  BALANCE : Balance amount left in their account to make purchases 
+
+3.  BALANCE_FREQUENCY : How frequently the Balance is updated, score between 0 and 1 (1 = frequently updated, 0 = not frequently updated)
+
+4.  PURCHASES : Amount of purchases made from account
+
+5.  ONEOFF_PURCHASES : Maximum purchase amount done in one-go
+
+6.  INSTALLMENTS_PURCHASES : Amount of purchase done in installment
+
+7.  CASH_ADVANCE : Cash in advance given by the user
+
+8.  PURCHASES_FREQUENCY : How frequently the Purchases are being made, score between 0 and 1 (1 = frequently purchased, 0 = not frequently purchased)
+
+9.  ONEOFFPURCHASESFREQUENCY : How frequently Purchases are happening in one-go (1 = frequently purchased, 0 = not frequently purchased)
+
+10.  PURCHASESINSTALLMENTSFREQUENCY : How frequently purchases in installments are being done (1 = frequently done, 0 = not frequently done)
+
+11.  CASHADVANCEFREQUENCY : How frequently the cash in advance being paid
+
+12.  CASHADVANCETRX : Number of Transactions made with "Cash in Advanced"
+
+13.  PURCHASES_TRX : Number of purchase transactions made
+
+14.  CREDIT_LIMIT : Limit of Credit Card for user
+
+15.  PAYMENTS : Amount of Payment done by user
+
+16.  MINIMUM_PAYMENTS : Minimum amount of payments made by user
+
+17.  PRCFULLPAYMENT : Percent of full payment paid by user
+
+18.  TENURE : Tenure of credit card service for user
+
+## preparing data
+
+in order to preparing data I do the following step:
+
+.  finding NA elements and handling that by replacing with median of data.
+
+. removing variable CUST_ID because it's in class of character.
+
+. standardization data.To ensure every feature contributes equally to my analysis.
+
+. reduction dimension.
+
+**NA handling:**
+Firstly I read the data and then to have a better visualization I changed the label of variables to the shorter variable.The by summary() function we look at the data in statistic way in order to find the type of data
+```{r}
+ccgeneral <- read.csv("F:/Warsaw university/unsupervised learning/R_code/project clustering/CC GENERAL.csv")
+names(ccgeneral) <- c("CUST_ID","Bal", "Bal_F", "Pur", "1f_Pur", "Ins_Pur", "Cash_Ad", "Pur_F", "1f_Pur_F", "Pur_Ins_F",
+                        "Cash_Ad_F", "Cash_Ad_T", "Pur_T", "Cred_Lim", "pay", "Min_pay", "PRC_Ful_pay", "Ten")
+summary(ccgeneral)
+```
+we have 313 NA at minimum payment(Min_pay) and one NA in credit_limit(Cred_Lim). I replaced with median of each column.
+```{r}
+ccgeneral$Min_pay <- ifelse(is.na(ccgeneral$Min_pay), median(ccgeneral$Min_pay, na.rm=TRUE), ccgeneral$Min_pay)
+ccgeneral$Cred_Lim <- ifelse(is.na(ccgeneral$Cred_Lim), median(ccgeneral$Cred_Lim, na.rm=TRUE), ccgeneral$Cred_Lim)
+```
+**Removing characteristic column and standardization:** I remove the first column because it is character and then standardization.This is where data normalization comes in, it ensures that each attribute has the same level of contribution, preventing one variable from dominating others. 
+```{r}
+ccgenerall <- ccgeneral[2:18]
+ccgeneral_z <- as.data.frame(lapply(ccgenerall, scale))
+```
+## dimension reduction
+Credit card data set has 18 dimension which is so high to analysis our segment so I decided to reduce the dimension by Principal Component Analysis (PCA) to get a better result and describe the segments in the efficient way. 
+While dimension reduction can be beneficial, especially with a large number of features, it’s essential to ensure that we don’t lose significant information in the process. I applied Principal Component Analysis (PCA) to understand the variance explained by different components.
+
+Check, installation and loading of required packages 
+```{r include=FALSE}
+# Check, installation and loading of required packages #
+requiredPackages = c("tidyverse", "pastecs", "readr", "dplyr", "ggplot2","cowplot", "flexclust", "clustertend", "clusterability", "grid","patchwork", "clustertend", 'hopkins',"cluster", "factoextra", "fpc", "dbscan", "ClusterR", "clValid", "gridExtra", "ggpubr", "tidyr", "vioplot", "GGally", "corrplot", 'viridis')
+```
+loading the installed package
+```{r include=FALSE}
+for(i in requiredPackages){if(!require(i,character.only = TRUE)) library(i,character.only = TRUE) } 
+```
+At first I will find the correlation matrix in order to see correlation between variables. One of the important step in preparing data is finding high correlation variables and then for each pairs of high correlation, keep one of them and remove another one. Some time wrongly it will be assume that during dimention reduction, removing high correlation variables will be handle. I want to examine this hypothesis. Firstly I apply PCA on my dataset. Secondly I will remove the the high correlation variables and then I will apply the PCA on the new dataset one more time and then I will compare the outputs of the PCA.
+```{r}
+pca1 <- prcomp(ccgeneral_z)
+summary(pca1)
+```
+There are 17 principle component, PC1 till PC17 which also correspond to the number of variables in the normalized data.
+The result of the summary function shows three statistics according to all components: standard deviation, proportion of variance and cumulative proportion. for choosing the component we should concentrate on the third element. I mean cumulative proportion and we should select the number of component which cover at least 2/3 of data, for my case PC1 cover 27% of variance and PC2 explain 20% variance and finally component 1 until 7 together cover about 80 percent of variance which is good percent and based on these seven component I choose variables which are more important.
+
+```{r}
+cor.matrix <- cor(ccgeneral_z, method = c("pearson"))
+corrplot(cor.matrix, type = "lower", order = "alphabet", tl.cex = 0.6)
+```
+
+
+```{r}
+correlation_matrix <- cor(ccgeneral_z)
+
+# Get the indices of variables with correlation greater than 0.6
+high_correlation_indices <- which(correlation_matrix > 0.6 & correlation_matrix < 1, arr.ind = TRUE)
+
+# Extract variable names
+high_correlation_pairs <- rownames(correlation_matrix)[high_correlation_indices[, 1]]
+high_correlation_pairs <- cbind(high_correlation_pairs, colnames(correlation_matrix)[high_correlation_indices[, 2]])
+
+# Print the pairs of variables with correlation greater than 0.8
+print(high_correlation_pairs)
+
+```
+we can see between some variable we have a strong correlation (more than 0.6). In order to making it easer to see this correlation I draw this chart and based on that I decided keep "Pur" and remove this variables: {"Pay, if_pur, Ins-Pur, Pur_T"} which have the high correlation. and also keep "Pur_F" and remove "Pur_Ins_F", and finally keep "Cash_Ad" and remove "Cash_Ad_F" and "Cash_Ad_T".
+```{r}
+knitr::include_graphics("Pca.png")
+
+```
+
+```{r}
+ccgeneral_zn <- ccgeneral_z[c(1,2,3,6,7,8,13,15,16,17)]
+summary(ccgeneral_zn)
+```
+So by removing high correlation variables our variables decrease from 17 to 10. and now I apply PCA on new dataset.
+
+**Applying PCA**
+```{r}
+pca1 <- prcomp(ccgeneral_zn)
+summary(pca1)
+```
+```{r}
+eig_val <- get_eigenvalue(pca1)
+eig_val
+```
+
+Looking at the PCA results, we found that using artificial variables PC1 through PC6 covers 83% of our data, which is better than before(covering 80% of data by 7 component). By removing highly correlated variables beforehand, we improved our coverage from 80% to 83%. This suggests it's wise to drop those correlated variables before running PCA.
+Lets look at the component and discuse that each of them represent what.
+
+**Analysis of the components:**
+```{r}
+pc1=fviz_contrib(pca1, choice = "var", axes = 1)
+pc2=fviz_contrib(pca1, choice = "var", axes = 2)
+pc3=fviz_contrib(pca1, choice = "var", axes = 3)
+pc4=fviz_contrib(pca1, choice = "var", axes = 4)
+pc5=fviz_contrib(pca1, choice = "var", axes = 5)
+pc6=fviz_contrib(pca1, choice = "var", axes = 6)
+grid.arrange(pc1, pc2, pc3, ncol=2)
+grid.arrange(pc4, pc5, pc6, ncol=2)
+```
+
+```{r include=FALSE}
+a1=names(sort(pca1$rotation[, 1], decreasing = TRUE)[1:4])
+a2=names(sort(pca1$rotation[, 2], decreasing = TRUE)[1:5])
+a3=names(sort(pca1$rotation[, 3], decreasing = TRUE)[1:5])
+a4=names(sort(pca1$rotation[, 4], decreasing = TRUE)[1:2])
+a5=names(sort(pca1$rotation[, 5], decreasing = TRUE)[1:2])
+a6=names(sort(pca1$rotation[, 6], decreasing = TRUE)[1:2])
+a=c(a1,a2,a3,a4,a5,a6)
+a1
+a2
+a3
+a4
+a5
+a6
+```
+this result show us that for every component, which variables are most important and focus on that variable.
+for component 1 the variables {"Cred_Lim", "Pur", "Bal", "X1f_Pur_F"} is more important.
+for component 2 the variables {"Pur_F", "PRC_Ful_pay", "X1f_Pur_F", "Pur", "Ten"} is more important.
+for component 3 the variables {"Cred_Lim", "Cash_Ad", "PRC_Ful_pay" "Pur", "Bal"} is more important.
+for component 4 the variables {"Ten", "Cred_Lim"} is more important.
+for component 5 the variables {"Min_pay", "PRC_Ful_pay"} is more important.
+for component 6 the variables {"PRC_Ful_pay", "Bal_F"} is more important.
+
+## Clustering
+
+Clustering is a technique used to understand how data is grouped together. With the K-means algorithm, we split the data into different groups, or clusters, where each data point belongs to just one group. To figure out how many clusters to use, we can use a method called the elbow method, which helps us find the best number of clusters by looking at the shape of a plot.
+```{r}
+kkm<-Optimal_Clusters_KMeans(ccgeneral_zn,max_cluster=10,plot_cluster=TRUE)
+kkm<-3
+```
+I decided to choose the number of clusters as 3, because the changes after 3 is sharper, so I will continue with 3 group of cluster.
+
+```{r}
+
+ccgeneral_cluster_km3<-kmeans(ccgeneral_zn,3)
+
+fviz_cluster(list(data=ccgeneral_zn, cluster=ccgeneral_cluster_km3$cluster), 
+             ellipse.type="norm", geom="point", stand=FALSE, palette="jco", ggtheme=theme_classic())
+
+```
+```{r}
+ccgeneral_zn$cluster_lable <- ccgeneral_cluster_km3$cluster
+x <- split(ccgeneral_zn, ccgeneral_zn$cluster_lable)
+class1 <- as.data.frame(x[1])
+summary(class1)
+
+
+```
+**Analysing the behavior of each segment:**
+
+Calculate and display the median values of the variables within each cluster help us to identify the characteristic features of each cluster and understand the differences between them.
+```{r}
+# Calculate median for each variable within each cluster group
+median_df <- ccgeneral_zn %>%
+  group_by(ccgeneral_zn$cluster_lable) %>%
+  summarise_at(vars(names(ccgeneral_zn)), median)
+
+# Print the resulting dataframe
+print(t(median_df))
+
+```
+
+**Cluster 1:**
+This customer group have high Bal(balances) and high cash_Ad(cash advance) with low Pur(purchases) and low PRC_Ful_pay (Percentage of Full Payments). We can assume that this customer group uses their credit cards as a loan.
+
+**Cluster 2:**
+This customer group are in the oposide side with the previous group. They have a high Pur_F(Purchases Frequency) and high X1f_Pur_F (One-off Purchases Frequency) with low balance and low Cash_Ad (Cash Advance). We can assume that this customer group uses their credit card as a household purchase.
+
+**Cluster 3:**
+This customer group have low balance, low purchases low cash advance and low in all factor relatively. We can assume this group of customer dont uses of their card frequently.
+
+## conclusion
+Clustering techniques are essential for grouping similar data points together based on their features or characteristics. By identifying inherent patterns and structures within the data, clustering helps in understanding the natural grouping of data points without the need for labeled training data.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
