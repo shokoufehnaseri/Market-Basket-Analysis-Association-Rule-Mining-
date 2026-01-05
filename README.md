@@ -59,7 +59,7 @@ The goal is to identify products that are frequently purchased together and tran
 
 ### Clone the repository
 ```bash
-git clone https://github.com/yourusername/market-basket-analysis.git
+git clone https://github.com/shokoufehnaseri/market-basket-analysis.git
 ```
 ## How to Run the Project
 
